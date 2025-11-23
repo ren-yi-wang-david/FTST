@@ -1,46 +1,53 @@
 #pragma once
+#include <iostream>
 #include <vector>
-#include <cmath>
-#include <stdexcept>
-
-namespace ftst {
-
-class ThermalAnalysis {
+#include <string>
+#include<unordered_map>
+#include<algorithm>
+#include "parser.hpp"
+class sparse_matrix
+{
 public:
-    ThermalAnalysis(int nx, int ny, double dx, double dy, double k)
-        : Nx(nx), Ny(ny), dx(dx), dy(dy), k(k), 
-          power(nx * ny, 0.0), bc(nx * ny, 0.0), T(nx * ny, 0.0) {}
-
-    void set_power(const std::vector<double>& p) {
-        if (p.size() != power.size()) throw std::runtime_error("Power size mismatch");
-        power = p;
-    }
-
-    void set_boundary(const std::vector<double>& b) {
-        if (b.size() != bc.size()) throw std::runtime_error("Boundary size mismatch");
-        bc = b;
-    }
-
-    void solve_steady(int iterations = 5000) {
-        // 五點格式 Jacobi 迭代求解
-        for (int it = 0; it < iterations; ++it) {
-            for (int i = 1; i < Nx - 1; ++i) {
-                for (int j = 1; j < Ny - 1; ++j) {
-                    int idx = i * Ny + j;
-                    T[idx] = 0.25 * (T[(i+1)*Ny+j] + T[(i-1)*Ny+j] +
-                                     T[i*Ny+(j+1)] + T[i*Ny+(j-1)]) +
-                              power[idx] * dx * dy / (4 * k);
-                }
-            }
-        }
-    }
-
-    const std::vector<double>& get_temperature() const { return T; }
-
-private:
-    int Nx, Ny;
-    double dx, dy, k;
-    std::vector<double> power, bc, T;
+  sparse_matrix() {};
+  std::vector<int> no_zero_term;
+  std::vector<std::vector<int>> no_zero_term_column;
+  std::vector<std::vector<SADB>> no_zero_term_value;
+};
+class thermal_analysis
+{
+public:
+  thermal_analysis()
+  {
+	total_nodes_number = -1;
+	AnalArea = nullptr;
+  };
+  int total_nodes_number;
+  analysis_area* AnalArea;
+  sparse_matrix thermal_MNA_matrix;
+  std::vector<SADB> thermal_b_matrix;
+  std::vector<SADB> thermal_result;
+  void stamp_thermal_MNA();
+  void init_thermal_saprse_m();
+  void stamp_resitance_to_sparsem
+  (
+	grid* Grid,
+	grid* neighbor,
+	SADB coefficient,
+	int nonzero_index
+  );
+  void stamp_power_to_b_matrix();//have bugs
+  void stamp_power_to_b_matrix_ver2();
+  void stamp_power_to_b_matrix_ver3();//tiling+parallel+buffered write
+  void Thermal_Analysis();
+  void assign_tempture_to_grids();
+  void stamp_power_to_b_matrix_ver4();//hash+tiling+parallel+buffered write
+  void stamp_power_to_b_matrix_ver5();//tiling+parallel+buffered write
+  void stamp_power_to_b_matrix_ver6();//tiling+parallel+buffered write
+  
 };
 
-} // namespace ftst
+
+SADB caculate_thermal_resitance(
+    SADB mat_value,
+    int area_case, // 1: yz面積, 2: xz面積, 3: xy面積
+    grid *Grid);

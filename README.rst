@@ -33,7 +33,6 @@ System Architecture
 - **Python binding**: `pybind11` exposes the C++ solver (`ftst_dense`), so Python drives configuration, execution, and data extraction.
 - **Visualization & comparison**: Python utilities (`FTST.ThermalSolver`, `FTST.compare`) handle CSV exports, heatmaps, and Icepak comparisons for end users.
 - **Workflow**: Users set geometry/boundaries → C++ solver iterates (SIMD + threads) → results stream back to Python → plots/CSV/validation artifacts are saved under `output/`.
-git
 
 API Description
 ===============

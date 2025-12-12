@@ -171,10 +171,7 @@ Schedule(completed)
 * Week 9 (12/1): Finalize release v0.1.0; polish code, demos, and pytest coverage.
 
 * Week 10 (12/8): Prepare final report; demo presentation.
-![Heatmap Z](output/heatmap_z_main.png)
 
-
-output/heatmap_z_main.png
 References
 ==========
 

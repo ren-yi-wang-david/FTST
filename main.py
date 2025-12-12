@@ -1,109 +1,47 @@
-import numpy as np
-import matplotlib.pyplot as plt
+from pathlib import Path
+import sys
 
-# ==========================================================
-# 讀取 temperature_xyz.csv（格式：x_m, y_m, z_m, phi）
-# ==========================================================
-raw = np.loadtxt("phi_output.csv", delimiter=",", skiprows=1)
+ROOT = Path(__file__).resolve().parent
+PY_SRC = ROOT / "src" / "python"
+if str(PY_SRC) not in sys.path:
+    sys.path.insert(0, str(PY_SRC))
 
-xs_all  = raw[:, 0]
-ys_all  = raw[:, 1]
-zs_all  = raw[:, 2]
-temps_all = raw[:, 3]
+from FTST import ThermalSolver
 
 
-# ----------------------------------------------------------
-# 產生 unique 座標索引表（自動）
-# ----------------------------------------------------------
-ux = np.unique(xs_all)
-uy = np.unique(ys_all)
-uz = np.unique(zs_all)
+def main() -> None:
+    """Minimal end-to-end FTST workflow for users running python main.py."""
+    solver = ThermalSolver(Lx=0.01, Ly=0.01, Lz=0.01, dx=1e-4)
+    print(f"[INFO] Grid size = {solver.nx} × {solver.ny} × {solver.nz}")
 
-# 座標 → index 映射
-x_id = {v: i for i, v in enumerate(ux)}
-y_id = {v: i for i, v in enumerate(uy)}
-z_id = {v: i for i, v in enumerate(uz)}
+    solver.set_boundary([25.0, 25.0, 25.0, 25.0, 25.0, 60.0])
+    print("[INFO] Boundary set (top face 60 °C, others 25 °C)")
 
-NX = len(ux)
-NY = len(uy)
-NZ = len(uz)
+    print("[INFO] Solving ...")
+    solver.solve(max_iter=5000, tolerance=1e-8)
+    print("[INFO] Solve complete")
 
-print(f"[INFO] NX={NX}, NY={NY}, NZ={NZ}")
-print(f"[INFO] dx = {ux[1] - ux[0]} m")
+    phi = solver.solution_array()
+    cx, cy, cz = solver.nx // 2, solver.ny // 2, solver.nz // 2
+    print(f"[INFO] Center temperature = {phi[cx, cy, cz]:.4f} °C")
 
-# ==========================================================
-# 設切面
-# mode: 'x', 'y', 'z'
-# target_m: 切面位置（公尺）
-# ==========================================================
-mode = 'z'
-target_m = 0.005  # 5 mm
+    out_dir = ROOT / "output"
+    out_dir.mkdir(exist_ok=True)
 
-# 找到最接近 target_m 的座標值
-def nearest(arr, v):
-    idx = np.argmin(np.abs(arr - v))
-    return idx, arr[idx]
+    csv_path = out_dir / "result_from_main.csv"
+    solver.temp_csv(csv_path.as_posix())
+    print(f"[INFO] Temperature field saved → {csv_path}")
 
-if mode == 'z':
-    level_index, target = nearest(uz, target_m)
-elif mode == 'y':
-    level_index, target = nearest(uy, target_m)
-elif mode == 'x':
-    level_index, target = nearest(ux, target_m)
+    solver.cutplane_plot("z", cz, (out_dir / "heatmap_z_main.png").as_posix())
+    print("[INFO] Saved heatmap → heatmap_z_main.png")
 
-print(f"[INFO] mode={mode}, target={target_m} m, actual={target} m")
+    ice_path = ROOT / "tests" / "resources" / "ice.txt"
+    if ice_path.exists():
+        print(f"[INFO] Running compare() against {ice_path} ...")
+        solver.compare(ice_path.as_posix(), csv_path.as_posix())
+    else:
+        print("[INFO] Icepak reference not found; skipping comparison.")
 
-# ==========================================================
-# 建立切面矩陣
-# ==========================================================
-if mode == 'z':
-    plane = np.zeros((NY, NX))
-    mask = (zs_all == target)
 
-    for x, y, t in zip(xs_all[mask], ys_all[mask], temps_all[mask]):
-        plane[y_id[y], x_id[x]] = t
-
-    xlabel, ylabel = "x (m)", "y (m)"
-    extent = [ux.min(), ux.max(), uy.min(), uy.max()]
-    title = f"Temperature Cut-plane at z={target:.4f} m"
-
-elif mode == 'y':
-    plane = np.zeros((NZ, NX))
-    mask = (ys_all == target)
-
-    for x, z, t in zip(xs_all[mask], zs_all[mask], temps_all[mask]):
-        plane[z_id[z], x_id[x]] = t
-
-    xlabel, ylabel = "x (m)", "z (m)"
-    extent = [ux.min(), ux.max(), uz.min(), uz.max()]
-    title = f"Temperature Cut-plane at y={target:.4f} m"
-
-elif mode == 'x':
-    plane = np.zeros((NY, NZ))
-    mask = (xs_all == target)
-
-    for y, z, t in zip(ys_all[mask], zs_all[mask], temps_all[mask]):
-        plane[y_id[y], z_id[z]] = t
-
-    xlabel, ylabel = "z (m)", "y (m)"
-    extent = [uz.min(), uz.max(), uy.min(), uy.max()]
-    title = f"Temperature Cut-plane at x={target:.4f} m"
-
-# ==========================================================
-# Plot
-# ==========================================================
-plt.figure(figsize=(7, 6))
-plt.imshow(
-    plane,
-    origin='lower',
-    extent=extent,
-    aspect='auto',
-    cmap="inferno"
-)
-plt.colorbar(label="Temperature (°C)")
-plt.title(title)
-plt.xlabel(xlabel)
-plt.ylabel(ylabel)
-
-plt.tight_layout()
-plt.show()
+if __name__ == "__main__":
+    main()
